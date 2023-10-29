@@ -13,6 +13,8 @@ from time import sleep # Allows for specific time delays and such
 from threading import Thread
 #importing all the modules we need to run the code.
 
+# im no python dev tho im a lua dev so code may be weird
+# and obv its just a modded code original is !!!!!colorb!!!!!
 # so basically colorb with added ragebot and removed unused shit and better anti shakeness (thanks to bolts for the config)
 
 switchmodes = ["hold", "toggle"] #this is a array of [0, 1] where hold is 0, toggle is 1.
@@ -106,11 +108,14 @@ def lclc():
 class trb0t:
     def __init__(self): #initialize the code, first set the variables for default settings.
         self.a1mtoggled = False
+        self.clicks = 0
         self.switchmode = 0 #as i said earlier, the array is 0-1, 0 being hold, 1 being toggle. the default is HOLD as you can see.
 
     def stop(self):
+        oldclicks=self.clicks
         sleep(.05)
-        windll.user32.mouse_event(0x0004)
+        if self.clicks==oldclicks:
+            windll.user32.mouse_event(0x0004)
 
     def process(self): #process all images we're capturing
         try: 
@@ -132,6 +137,7 @@ class trb0t:
                     windll.user32.mouse_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0) #move the mouse towards, usually should feel like aimassist.
                     if (distance <= 13):
                         windll.user32.mouse_event(0x0002)
+                        self.clicks +=1
                         Thread(target=self.stop).start()
         except Exception as e:
             print("Error in processing:", e)

@@ -4,6 +4,7 @@ import winsound
 import cv2
 import numpy as np
 from os import path, system
+from urllib.request import urlopen
 from mss import mss
 from keyboard import is_pressed
 from configparser import ConfigParser
@@ -13,7 +14,14 @@ from ctypes import windll
 from time import sleep
 from threading import Thread
 
+CURRENT_VERSION = "v1.2" # IMPORTANT !!!!!! CHANGE lmfao
+
 system("title Colorbot")
+
+if urlopen("https://raw.githubusercontent.com/AndrewDarkyy/Colorbot-Modded/main/version.txt").read().decode('utf-8')!=CURRENT_VERSION+"\n":
+    print(Style.BRIGHT + Fore.CYAN + "This version is outdated, please get the latest one at " + Fore.YELLOW + "https://github.com/AndrewDarkyy/Colorbot-Modded/releases" + Style.RESET_ALL)
+    while True:
+        pass
 
 switchmodes = ("Hold", "Toggle")
 
@@ -125,6 +133,9 @@ class colorbot:
         dilated = cv2.dilate(cv2.inRange(hsv, lower, upper), np.ones((3, 3), np.uint8), iterations=5)
         thresh = cv2.threshold(dilated, 60, 255, cv2.THRESH_BINARY)[1]
         (contours, hierarchy) = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # cv2.imshow("Colorbot" ,img)
+        # cv2.setWindowProperty("Colorbot", cv2.WND_PROP_TOPMOST, 1)
+        # cv2.waitKey(100)
         if len(contours) != 0:
             contour = max(contours, key=cv2.contourArea)
             topmost = tuple(contour[contour[:, :, 1].argmin()][0])

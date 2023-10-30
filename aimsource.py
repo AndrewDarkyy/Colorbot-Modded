@@ -1,284 +1,256 @@
-import winsound # Beep noises (temp disabled)
-import os
-import cv2 # Reads through screenshot
-import win32con
-import numpy as np # Works with CV2
-from mss import mss # Takes screenshot
-from keyboard import is_pressed # Library that relates to reading and writing keyboard inputs
+# original: https://github.com/Seconb/Arsenal-Colorbot
+
+import winsound
+import cv2
+import numpy as np
+from os import path, system
+from mss import mss
+from keyboard import is_pressed
 from configparser import ConfigParser
-from win32api import GetAsyncKeyState # Windows API that I just use for mouse button keybinds and mouse movement to an enemy
-from colorama import Fore, Style # Makes the colorful text in the console
-from ctypes import windll # Also Windows API to move the mouse
-from time import sleep # Allows for specific time delays and such
+from win32api import GetAsyncKeyState
+from colorama import Fore, Style
+from ctypes import windll
+from time import sleep
 from threading import Thread
-#importing all the modules we need to run the code.
 
-# im no python dev tho im a lua dev so code may be weird
-# and obv its just a modded code original is !!!!!colorb!!!!!
-# so basically colorb with added ragebot and removed unused shit and better anti shakeness (thanks to bolts for the config)
+system("title Colorbot")
 
-switchmodes = ["hold", "toggle"] #this is a array of [0, 1] where hold is 0, toggle is 1.
+switchmodes = ("Hold", "Toggle")
 
-os.system("title Seconb for Arsenal") # add a title
+sdir = path.dirname(path.abspath(__file__))
 
-sdir = os.path.dirname(os.path.abspath(__file__)) #Finding current directory where the script is being run in
-config_file_path = os.path.join(sdir, "config.ini") # Searching for the file called config.ini to read settings
+config = ConfigParser()
+config.optionxform = str
+config.read(path.join(sdir, "config.ini"))
 
-try:
-    config = ConfigParser() #this is separating all the config options you set.
-    config.optionxform = str
-    config.read(config_file_path)
-except Exception as e: #every try: ... except Exception as e: ... is a form of general error catching, the basics.
-    print("Error reading configuration:", e)
-
-
-def loadsettings(): #loading the settings, duh.
-    global A1M_KEY, SWITCH_MODE_KEY
+def loadsettings():
+    global A1M_KEY, SWITCH_MODE_KEY, TRIGGERBOT_KEY
     global FOV_KEY_UP, FOV_KEY_DOWN, CAM_FOV
     global A1M_OFFSET_Y, A1M_OFFSET_X, A1M_SPEED_X, A1M_SPEED_Y
-    global upper, lower, A1M_FOV, BINDMODE
-    #these are essential variables that show the settings of the application.
-    try:
-        BINDMODE = config.get("Config", "BINDMODE")
-        if (
-            BINDMODE.lower() == "win32"
-            or BINDMODE.lower() == "win32api"
-            or BINDMODE.lower() == "win"
-        ):
-            A1M_KEY_STRING = config.get("Config", "A1M_KEY")
-            if "win32con" in A1M_KEY_STRING:
-                A1M_KEY = eval(A1M_KEY_STRING, {"win32con": win32con})
-            else:
-                A1M_KEY = str(A1M_KEY_STRING)
-        if (
-            BINDMODE.lower() == "keyboard"
-            or BINDMODE.lower() == "k"
-            or BINDMODE.lower() == "key"
-        ):
-            A1M_KEY = config.get("Config", "A1M_KEY")
-        SWITCH_MODE_KEY = config.get("Config", "SWITCH_MODE_KEY")
-        FOV_KEY_UP = config.get("Config", "FOV_KEY_UP")
-        FOV_KEY_DOWN = config.get("Config", "FOV_KEY_DOWN")
-        CAM_FOV = int(config.get("Config", "CAM_FOV"))
-        A1M_FOV = int(config.get("Config", "A1M_FOV"))
-        A1M_OFFSET_Y = int(config.get("Config", "A1M_OFFSET_Y"))
-        A1M_OFFSET_X = int(config.get("Config", "A1M_OFFSET_X"))
-        A1M_SPEED_X = float(config.get("Config", "A1M_SPEED_X"))
-        A1M_SPEED_Y = float(config.get("Config", "A1M_SPEED_Y"))
-        upper = np.array([38, 255, 203], dtype="uint8") # The upper and lower ranges defined are the colors that the aimbot will detect and shoot at
-        lower = np.array([30, 255, 201], dtype="uint8") # It's basically a group of a VERY specific shade of yellow (in this case) that it will shoot at and nothing else. The format is HSV, which differs from RGB.
-        # For more experienced users, to change the upper and lower, then use this tool: https://github.com/hariangr/HsvRangeTool 
-        # Take a screenshot of an enemy with the highlight color you want and get the range and add that here in place of the current upper and lower
-    
-    except Exception as e:
-        print("Error loading settings:", e)
+    global upper, lower, A1M_FOV
 
-
-sct = mss()
+    A1M_KEY_STRING = config.get("Config", "A1M_KEY")
+    if A1M_KEY_STRING == "win32con.VK_XBUTTON2" or A1M_KEY_STRING == "VK_XBUTTON2":
+        A1M_KEY = 0x02
+    elif A1M_KEY_STRING == "win32con.XBUTTON1" or A1M_KEY_STRING == "XBUTTON1":
+        A1M_KEY = 0x01
+    else:
+        try:
+            is_pressed(A1M_KEY_STRING)
+        except:
+            print("Please change A1M_KEY to an existing key.")
+            while True:
+                sleep(0.1) # omggg check if key exists so just, just amazing
+                try:
+                    new_config = ConfigParser()
+                    new_config.optionxform = str
+                    new_config.read(path.join(sdir, "config.ini"))
+                    is_pressed(new_config.get("Config", "A1M_KEY"))
+                    A1M_KEY_STRING = new_config.get("Config", "A1M_KEY")
+                    break
+                except:
+                    pass
+        A1M_KEY = A1M_KEY_STRING
+    TRIGGERBOT_KEY_STRING = config.get("Config", "TRIGGERBOT_KEY")
+    if TRIGGERBOT_KEY_STRING == "win32con.VK_XBUTTON2" or TRIGGERBOT_KEY_STRING == "VK_XBUTTON2":
+        TRIGGERBOT_KEY = 0x02
+    elif TRIGGERBOT_KEY_STRING == "win32con.XBUTTON1" or TRIGGERBOT_KEY_STRING == "XBUTTON1":
+        TRIGGERBOT_KEY = 0x01
+    else:
+        try:
+            is_pressed(TRIGGERBOT_KEY_STRING)
+        except:
+            print("Please change TRIGGERBOT_KEY to an existing key.")
+            while True:
+                sleep(0.1)
+                try:
+                    new_config = ConfigParser()
+                    new_config.optionxform = str
+                    new_config.read(path.join(sdir, "config.ini"))
+                    is_pressed(new_config.get("Config", "TRIGGERBOT_KEY"))
+                    TRIGGERBOT_KEY_STRING = new_config.get("Config", "TRIGGERBOT_KEY")
+                    break
+                except:
+                    pass
+        TRIGGERBOT_KEY = TRIGGERBOT_KEY_STRING
+    SWITCH_MODE_KEY = config.get("Config", "SWITCH_MODE_KEY")
+    FOV_KEY_UP = config.get("Config", "FOV_KEY_UP")
+    FOV_KEY_DOWN = config.get("Config", "FOV_KEY_DOWN")
+    CAM_FOV = int(config.get("Config", "CAM_FOV"))
+    A1M_FOV = int(config.get("Config", "A1M_FOV"))
+    A1M_OFFSET_Y = int(config.get("Config", "A1M_OFFSET_Y"))
+    A1M_OFFSET_X = int(config.get("Config", "A1M_OFFSET_X"))
+    A1M_SPEED_X = float(config.get("Config", "A1M_SPEED_X"))
+    A1M_SPEED_Y = float(config.get("Config", "A1M_SPEED_Y"))
+    upper = np.array((38, 255, 203), dtype="uint8")
+    lower = np.array((30, 255, 201), dtype="uint8")
 
 try:
-    loadsettings() #try to catch any errors with the settings maybe a typo or something.
+    loadsettings()
 except Exception as e:
     print("Error loading settings:", e)
 
-screenshot = sct.monitors[1] #this is the settings for the screen capture, the program screenshots your first monitor and continues to look for enemies.
-screenshot["left"] = int((screenshot["width"] / 2) - (CAM_FOV / 2))
-screenshot["top"] = int((screenshot["height"] / 2) - (CAM_FOV / 2))
-screenshot["width"] = CAM_FOV
-screenshot["height"] = CAM_FOV
+sct = mss()
+
 center = CAM_FOV / 2
 
-audiodir = os.path.join(sdir, "audios") # this is use all our audio files with the code.
+screenshot = sct.monitors[1]
+screenshot["left"] = int((screenshot["width"] / 2) - center)
+screenshot["top"] = int((screenshot["height"] / 2) - center)
+screenshot["width"] = CAM_FOV
+screenshot["height"] = CAM_FOV
 
-try:
-    def audio(wavname):
-        audiopath = os.path.join(audiodir, wavname)
-        winsound.PlaySound(audiopath, winsound.SND_FILENAME | winsound.SND_ASYNC) #this is how we play audio files. (temp disabled)
-except Exception as e:
-    print("Error setting up audio:", e)
+audiodir = path.join(sdir, "audios")
 
+def audio(wavname):
+    audiopath = path.join(audiodir, wavname)
+    winsound.PlaySound(audiopath, winsound.SND_FILENAME | winsound.SND_ASYNC)
 
-def lclc():
-    try:
-        return GetAsyncKeyState(A1M_KEY) < 0 #checking if the aim key is pressed (mouse buttons)
-    except Exception as e:
-        print("Error checking key state:", e)
-
-
-class trb0t:
-    def __init__(self): #initialize the code, first set the variables for default settings.
-        self.a1mtoggled = False
+class colorbot:
+    def __init__(self):
+        self.aimtoggled = False
+        self.triggerbot = True
         self.clicks = 0
-        self.switchmode = 0 #as i said earlier, the array is 0-1, 0 being hold, 1 being toggle. the default is HOLD as you can see.
+        self.switchmode = 0
 
     def stop(self):
-        oldclicks=self.clicks
+        oldclicks = self.clicks
         sleep(.05)
-        if self.clicks==oldclicks:
+        if self.clicks == oldclicks:
             windll.user32.mouse_event(0x0004)
 
-    def process(self): #process all images we're capturing
-        try: 
-            img = np.array(sct.grab(screenshot))
-            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) #grab hsv color format from the screenshot
-            mask = cv2.inRange(hsv, lower, upper) # create a mask of only the enemy colors
-            dilated = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=5) # dilation makes objects appear larger for the aimbot
-            thresh = cv2.threshold(dilated, 60, 255, cv2.THRESH_BINARY)[1] # threshold
-            (contours, hcry) = cv2.findContours(
-                thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE # find contours
-            )
-            if len(contours) != 0: # if enemies are on screen: (or if there are contours of enemies on screen)
-                contour = max(contours, key=cv2.contourArea)
-                topmost = tuple(contour[contour[:, :, 1].argmin()][0]) #finds the highest contour vertically (highest point of the enemy, their head)
-                x = topmost[0] - center + A1M_OFFSET_X # calculating the perfect center of the enemy's head by offsetting it a set amount of pixels
-                y = topmost[1] - center + A1M_OFFSET_Y
-                distance = np.sqrt(x**2 + y**2) # basic distance in a 2d plane. calculated using pythagorean theorem.
-                if distance <= A1M_FOV:
-                    windll.user32.mouse_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0) #move the mouse towards, usually should feel like aimassist.
-                    if (distance <= 13):
-                        windll.user32.mouse_event(0x0002)
-                        self.clicks +=1
-                        Thread(target=self.stop).start()
-        except Exception as e:
-            print("Error in processing:", e)
+    def process(self):
+        img = np.array(sct.grab(screenshot))
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        dilated = cv2.dilate(cv2.inRange(hsv, lower, upper), np.ones((3, 3), np.uint8), iterations=5)
+        thresh = cv2.threshold(dilated, 60, 255, cv2.THRESH_BINARY)[1]
+        (contours, hierarchy) = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        if len(contours) != 0:
+            contour = max(contours, key=cv2.contourArea)
+            topmost = tuple(contour[contour[:, :, 1].argmin()][0])
+            x = topmost[0] - center + A1M_OFFSET_X
+            y = topmost[1] - center + A1M_OFFSET_Y
+            distance = np.sqrt(x**2 + y**2)
+            if distance <= A1M_FOV:
+                windll.user32.mouse_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0)
+            if self.triggerbot and distance <= 13:
+                windll.user32.mouse_event(0x0002)
+                self.clicks += 1
+                Thread(target = self.stop).start()
 
     def a1mtoggle(self):
-        try:
-            self.a1mtoggled = not self.a1mtoggled
-            sleep(.05) # very short cooldown to stop it from thinking we're rapid toggling.
-        except Exception as e:
-            print("Error toggling A1M:", e)
+        self.aimtoggled = not self.aimtoggled
+        sleep(.1)
+    
+    def triggerbotswitch(self):
+        self.triggerbot = not self.triggerbot
+        sleep(.1)
 
-    def modeswitch(self): #switch the modes from again, the array, from 0 to 1, 0 being hold, 1 being toggle.
-        try:
-            if self.switchmode == 0:
-                self.switchmode = 1 # adding so that it looks for 1, which is toggle.
-                audio("toggle.wav") # using the audio function we looked at earlier, which allows us to play a file from the audio dir.
-            elif self.switchmode == 1:
-                self.switchmode = 0
-                audio("hold.wav")
-        except Exception as e:
-            print("Error switching modes:", e)
+    def modeswitch(self):
+        if self.switchmode == 0:
+            self.switchmode = 1
+            audio("toggle.wav")
+        elif self.switchmode == 1:
+            self.switchmode = 0
+            audio("hold.wav")
+        sleep(.1)
 
+def print_banner(bot: colorbot):
+    system("cls")
+    print(Style.BRIGHT + Fore.CYAN + "Colorbot for Arsenal!" + Style.RESET_ALL)
+    print("====== Controls ======")
+    if A1M_KEY == 0x02:
+        print("Aimbot Keybind      :", Fore.YELLOW + "RightClick" + Style.RESET_ALL)
+    elif A1M_KEY == 0x01:
+        print("Aimbot Keybind      :", Fore.YELLOW + "LeftClick" + Style.RESET_ALL)
+    else:
+        print("Aimbot Keybind      :", Fore.YELLOW + str(A1M_KEY) + Style.RESET_ALL)
+    if TRIGGERBOT_KEY == 0x02:
+        print("Triggerbot Switch   :", Fore.YELLOW + "RightClick" + Style.RESET_ALL)
+    elif TRIGGERBOT_KEY == 0x01:
+        print("Triggerbot Switch   :", Fore.YELLOW + "LeftClick" + Style.RESET_ALL)
+    else:
+        print("Triggerbot Switch   :", Fore.YELLOW + str(TRIGGERBOT_KEY) + Style.RESET_ALL)
+    print("Change Mode         :", Fore.YELLOW + SWITCH_MODE_KEY + Style.RESET_ALL)
+    print("Change FOV          :", Fore.YELLOW + FOV_KEY_UP + " / " + FOV_KEY_DOWN + Style.RESET_ALL)
+    print("==== Information =====")
+    print("Aimbot Mode         :", Fore.CYAN + switchmodes[bot.switchmode] + Style.RESET_ALL)
+    print("Aimbot FOV          :", Fore.CYAN + str(A1M_FOV) + Style.RESET_ALL)
+    print("Camera FOV          :", Fore.CYAN + str(CAM_FOV) + Style.RESET_ALL)
+    print("Sensitivity         :", Fore.CYAN + "X: " + str(A1M_SPEED_X) + " Y: " + str(A1M_SPEED_Y) + Style.RESET_ALL)
+    print("Offset              :", Fore.CYAN + "X: " + str(A1M_OFFSET_X) + " Y: " + str(A1M_OFFSET_Y) + Style.RESET_ALL)
+    print("Aiming              :", (Fore.GREEN if bot.aimtoggled else Fore.RED) + str(bot.aimtoggled) + Style.RESET_ALL)
+    print("Triggerbotting      :", (Fore.GREEN if bot.triggerbot else Fore.RED) + str(bot.triggerbot) + Style.RESET_ALL)
 
-def print_banner(b0t: trb0t): #Printing the information
-    try:
-        os.system("cls") # First clearing the terminal, to then re-print with the new information. Note the colorama formatting with styling and colors!
-        print(
-            Style.BRIGHT
-            + Fore.CYAN
-            + """ Seconb Color Aim for Arsenal! """ # code modified by taylor
-            + Style.RESET_ALL
-        )
-        print("====== Controls ======")
-        print("Activate a1mb0t      :", Fore.YELLOW + str(A1M_KEY) + Style.RESET_ALL)
-        print("Switch toggle/hold   :", Fore.YELLOW + SWITCH_MODE_KEY + Style.RESET_ALL)
-        print(
-            "Change FOV           :",
-            Fore.YELLOW + FOV_KEY_UP + "/" + FOV_KEY_DOWN + Style.RESET_ALL,
-        )
-        print("==== Information =====")
-        print(
-            "Toggle/Hold Mode     :",
-            Fore.CYAN + switchmodes[b0t.switchmode] + Style.RESET_ALL,
-        )
-        print("A1m FOV              :", Fore.CYAN + str(A1M_FOV) + Style.RESET_ALL)
-        print("Cam FOV              :", Fore.CYAN + str(CAM_FOV) + Style.RESET_ALL)
-        print(
-            "A1m Speed            :",
-            Fore.CYAN
-            + "X: "
-            + str(A1M_SPEED_X)
-            + " Y: "
-            + str(A1M_SPEED_Y)
-            + Style.RESET_ALL,
-        )
-        print(
-            "A1m Offset           :",
-            Fore.CYAN
-            + "X: "
-            + str(A1M_OFFSET_X)
-            + " Y: "
-            + str(A1M_OFFSET_Y)
-            + Style.RESET_ALL,
-        )
-        print(
-            "A1m Activated        :",
-            (Fore.GREEN if b0t.a1mtoggled else Fore.RED)
-            + str(b0t.a1mtoggled)
-            + Style.RESET_ALL,
-        )
-    except Exception as e:
-        print("Error printing banner:", e)
+def update_triggerbot():
+    while True:
+        if TRIGGERBOT_KEY != "disabled":
+            if TRIGGERBOT_KEY == 0x01 or TRIGGERBOT_KEY == 0x02:
+                if GetAsyncKeyState(TRIGGERBOT_KEY) < 0:
+                    bot.triggerbotswitch()
+                    print_banner(bot)
+            elif is_pressed(TRIGGERBOT_KEY):
+                bot.triggerbotswitch()
+                print_banner(bot)
+        if FOV_KEY_UP != "disabled" and is_pressed(FOV_KEY_UP):
+            A1M_FOV += 5
+            audio("fovup.wav")
+            print_banner(bot)
+        if FOV_KEY_DOWN != "disabled" and is_pressed(FOV_KEY_DOWN):
+            A1M_FOV -= 5
+            audio("fovdown.wav")
+            print_banner(bot)
 
+        sleep(0.1)
+
+Thread(target = update_triggerbot).start()
 
 if __name__ == "__main__":
-    b0t = trb0t() #the main class we made earlier
-    try:
-        print_banner(b0t) #to update information or print initial info.
-        while True:
-            # under each if statement, we first check if the key is set to disabled (if it is disabled, then it will not function. this allows the user to disable keys they don't wish to use.
-            if SWITCH_MODE_KEY != "disabled" and is_pressed(SWITCH_MODE_KEY):
-                b0t.modeswitch() #switching the mode if the user presses the switch mode key AND its not disabled.
-                print_banner(b0t) #updating the information
-            if FOV_KEY_UP != "disabled" and is_pressed(FOV_KEY_UP):
-                A1M_FOV += 5 #same thing as before, just adding 5 increments to the fov.
-                audio("fovup.wav")
-                print_banner(b0t)
-            if FOV_KEY_DOWN != "disabled" and is_pressed(FOV_KEY_DOWN):
-                A1M_FOV -= 5 #same thing as before just removing 5 increments
-                audio("fovdown.wav")
-                print_banner(b0t)
+    bot = colorbot()
+    print_banner(bot)
+    while True:
+        if SWITCH_MODE_KEY != "disabled" and is_pressed(SWITCH_MODE_KEY):
+            bot.modeswitch()
+            print_banner(bot)
 
-            sleep(0.1) #.1s cooldown as a way of preventing lag and mispresses
+        sleep(0.1)
 
-            if (
-                BINDMODE.lower() == "win32"
-                or BINDMODE.lower() == "win32api"
-                or BINDMODE.lower() == "win" #make all strings lowercase just in case if someone in config typed it out as WIN32API, which the code wouldn't recognize.
-            ): # this is mostly for the mouse buttons.
-                if lclc(): #if user is holding down on the key or a key.
-                    if b0t.switchmode == 0: #if mode is on [**0**, 1] (means if 0) which is hold.
-                        while lclc(): #while the user is holding the key.
-                            if not b0t.a1mtoggled: 
-                                b0t.a1mtoggle() #and if the aim isn't already activated, activate it.
-                                print_banner(b0t) #update info
-                                while b0t.a1mtoggled: 
-                                    b0t.process() #while it is on/activated THEN process all screen capture, note that it doesn't process information unless activated.
-                                    if not lclc(): 
-                                        b0t.a1mtoggle() #if user stops holding the key, it'll turn off the colorbot.
-                                        print_banner(b0t) #update info.
-                    if b0t.switchmode == 1: #if mode is on [0, **1**] (means if toggled)
-                        b0t.a1mtoggle() # activate it forever until user presses again.
-                        print_banner(b0t)
-                        #winsound.Beep(200, 200) removing beep as its causing crashes, temp fix.
-                        while b0t.a1mtoggled: #while it is toggled
-                            b0t.process() # process the images.
-                            if lclc():
-                                b0t.a1mtoggle() # if user presses the button, then deactivate
-                                #winsound.Beep(200, 200) removing beep as its causing crashes, temp fix.
-                                print_banner(b0t) #update info
-            else:
-                if is_pressed(A1M_KEY): #else if the user uses keyboard config, then look for keyboard buttons instead.
-                    if b0t.switchmode == 0:
-                        while is_pressed(A1M_KEY): # SAME EXACT PROCESS AS THE MOUSE KEY PRESSES ABOVE, REFER THERE.
-                            if not b0t.a1mtoggled:
-                                b0t.a1mtoggle()
-                                print_banner(b0t)
-                                while b0t.a1mtoggled:
-                                    b0t.process()
-                                    if not is_pressed(A1M_KEY):
-                                        b0t.a1mtoggle()
-                                        print_banner(b0t)
-                    if b0t.switchmode == 1: 
-                        b0t.a1mtoggle() # SAME EXACT PROCESS AS THE MOUSE KEY PRESSES ABOVE, REFER THERE.
-                        print_banner(b0t)
-                        #winsound.Beep(200, 200) removing beep as its causing crashes, temp fix.
-                        while b0t.a1mtoggled:
-                            b0t.process()
-                            if is_pressed(A1M_KEY):
-                                b0t.a1mtoggle()
-                                #winsound.Beep(200, 200)  removing beep as its causing crashes, temp fix.
-                                print_banner(b0t)
-    except Exception as e:
-        print("An error occurred:", e) #the end, DM befia on discord if you need clarity. Info by, duh, befia or taylor.
+        if A1M_KEY == 0x02 or A1M_KEY == 0x01:
+            if GetAsyncKeyState(A1M_KEY) < 0:
+                if bot.switchmode == 0:
+                    while GetAsyncKeyState(A1M_KEY) < 0:
+                        if not bot.aimtoggled: 
+                            bot.a1mtoggle()
+                            print_banner(bot)
+                            while bot.aimtoggled: 
+                                bot.process()
+                                if not GetAsyncKeyState(A1M_KEY) < 0:
+                                    bot.a1mtoggle()
+                                    print_banner(bot)
+                else:
+                    bot.a1mtoggle()
+                    print_banner(bot)
+                    while bot.aimtoggled:
+                        bot.process()
+                        if GetAsyncKeyState(A1M_KEY) < 0:
+                            bot.a1mtoggle()
+                            print_banner(bot)
+        elif is_pressed(A1M_KEY):
+            if bot.switchmode == 0:
+                while is_pressed(A1M_KEY):
+                    if not bot.aimtoggled:
+                        bot.a1mtoggle()
+                        print_banner(bot)
+                        while bot.aimtoggled:
+                            bot.process()
+                            if not is_pressed(A1M_KEY):
+                                bot.a1mtoggle()
+                                print_banner(bot)
+            else: 
+                bot.a1mtoggle()
+                print_banner(bot)
+                while bot.aimtoggled:
+                    bot.process()
+                    if is_pressed(A1M_KEY):
+                        bot.a1mtoggle()
+                        print_banner(bot)

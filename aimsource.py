@@ -1,9 +1,9 @@
 # original: https://github.com/Seconb/Arsenal-Colorbot
 
-import winsound
-import cv2
-import numpy
+from cv2 import findContours, threshold, dilate, inRange, cvtColor, COLOR_BGR2HSV, THRESH_BINARY, RETR_EXTERNAL, CHAIN_APPROX_NONE, contourArea
+from numpy import array, ones, uint8
 from os import path, system
+from math import sqrt
 from mss import mss
 from keyboard import is_pressed
 from configparser import ConfigParser
@@ -17,7 +17,7 @@ from pygetwindow import getActiveWindow
 
 user32 = windll.user32
 
-CURRENT_VERSION = "v1.3" # IMPORTANT !!!!!! CHANGE lmfao
+CURRENT_VERSION = "v1.4" # IMPORTANT !!!!!! CHANGE lmfao
 
 system("title Colorbot")
 
@@ -89,24 +89,28 @@ def is_roblox_focused():
 
 try:
     global A1M_KEY, SWITCH_MODE_KEY
-    global CAM_FOV, A1M_FOV
+    global CAM_FOV, A1M_FOV, TRIGGERBOT_DELAY
     global A1M_OFFSET_Y, A1M_OFFSET_X, A1M_SPEED_X, A1M_SPEED_Y
     global upper, lower
     A1M_KEY = check_key(config.get("Config", "A1M_KEY"), "A1M_KEY")
     SWITCH_MODE_KEY = check_key(config.get("Config", "SWITCH_MODE_KEY"), "SWITCH_MODE_KEY")
     CAM_FOV = int(config.get("Config", "CAM_FOV"))
     A1M_FOV = int(config.get("Config", "A1M_FOV"))
+    TRIGGERBOT_DELAY = float(config.get("Config", "TRIGGERBOT_DELAY"))
     A1M_OFFSET_Y = int(config.get("Config", "A1M_OFFSET_Y"))
     A1M_OFFSET_X = int(config.get("Config", "A1M_OFFSET_X"))
     A1M_SPEED_X = float(config.get("Config", "A1M_SPEED_X"))
     A1M_SPEED_Y = float(config.get("Config", "A1M_SPEED_Y"))
-    upper = numpy.array((38, 255, 203), dtype="uint8")
-    lower = numpy.array((30, 255, 201), dtype="uint8")
+    upper = array((38, 255, 203), dtype="uint8")
+    lower = array((30, 255, 201), dtype="uint8")
     
     if A1M_SPEED_X <= 0:
         A1M_SPEED_X = 0.001 # everything multiplied by 0 is 0 (except infinity) so no use
     if A1M_SPEED_X > 1:
         A1M_SPEED_X = 1 # more than one prob useless
+
+    if 0 > TRIGGERBOT_DELAY:
+        TRIGGERBOT_DELAY = 0
 
     if A1M_SPEED_Y <= 0:
         A1M_SPEED_Y = 0.001
@@ -125,62 +129,72 @@ screenshot["top"] = int((screenshot["height"] / 2) - center)
 screenshot["width"] = CAM_FOV
 screenshot["height"] = CAM_FOV
 
-audiodir = path.join(sdir, "audios")
-
-def audio(wavname):
-    winsound.PlaySound(path.join(audiodir, wavname), winsound.SND_FILENAME | winsound.SND_ASYNC)
-
 class colorbot:
     def __init__(self):
         self.aimtoggled = False
-        self.clicks = 0
         self.switchmode = 0
+        self.__clicks = 0
+        self.__shooting = False
 
     def stop(self):
-        oldclicks = self.clicks
+        oldclicks = self.__clicks
         sleep(.05)
-        if self.clicks == oldclicks:
+        if self.__clicks == oldclicks:
             user32.mouse_event(0x0004)
+
+    def delayedaim(self):
+        self.__shooting=True
+        sleep(TRIGGERBOT_DELAY)
+        user32.mouse_event(0x0002)
+        self.__clicks += 1
+        Thread(target = self.stop).start()
+        self.__shooting = False
 
     def process(self):
         if is_roblox_focused():
-            (contours, hierarchy) = cv2.findContours(cv2.threshold(cv2.dilate(cv2.inRange(cv2.cvtColor(numpy.array(sct.grab(screenshot)), cv2.COLOR_BGR2HSV), lower, upper), numpy.ones((3, 3), numpy.uint8), iterations=5), 60, 255, cv2.THRESH_BINARY)[1], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            (contours, hierarchy) = findContours(threshold(dilate(inRange(cvtColor(array(sct.grab(screenshot)), COLOR_BGR2HSV), lower, upper), ones((3, 3), uint8), iterations=5), 60, 255, THRESH_BINARY)[1], RETR_EXTERNAL, CHAIN_APPROX_NONE)
             if len(contours) != 0:
-                contour = max(contours, key=cv2.contourArea)
+                contour = max(contours, key=contourArea)
                 topmost = tuple(contour[contour[:, :, 1].argmin()][0])
                 x = topmost[0] - center + A1M_OFFSET_X
                 y = topmost[1] - center + A1M_OFFSET_Y
-                distance = numpy.sqrt(x**2 + y**2)
+                distance = sqrt(x**2 + y**2)
                 if distance <= A1M_FOV:
                     user32.mouse_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0)
                 if distance <= 14:
-                    user32.mouse_event(0x0002)
-                    self.clicks += 1
-                    Thread(target = self.stop).start()
+                    if TRIGGERBOT_DELAY!=0:
+                        if self.__shooting == False:
+                            Thread(target = self.delayedaim).start()
+                    else:
+                        user32.mouse_event(0x0002)
+                        self.__clicks += 1
+                        Thread(target = self.stop).start()
                 else:
                     for index in range(len(contour)):
                         topmost = tuple(contour[index][0])
                         x = topmost[0] - center + A1M_OFFSET_X
                         y = topmost[1] - center + A1M_OFFSET_Y
-                        distance = numpy.sqrt(x**2 + y**2)
+                        distance = sqrt(x**2 + y**2)
                         if distance <= 13:
-                            user32.mouse_event(0x0002)
-                            self.clicks += 1
-                            Thread(target = self.stop).start()
+                            if TRIGGERBOT_DELAY!=0:
+                                if self.__shooting == False:
+                                    Thread(target = self.delayedaim).start()
+                            else:
+                                user32.mouse_event(0x0002)
+                                self.__clicks += 1
+                                Thread(target = self.stop).start()
                             break
 
     def a1mtoggle(self):
         self.aimtoggled = not self.aimtoggled
-        sleep(.1)
+        sleep(.08)
 
     def modeswitch(self):
         if self.switchmode == 0:
             self.switchmode = 1
-            audio("toggle.wav")
         elif self.switchmode == 1:
             self.switchmode = 0
-            audio("hold.wav")
-        sleep(.1)
+        sleep(.08)
 
 def print_banner(bot: colorbot):
     system("cls")
@@ -192,6 +206,7 @@ def print_banner(bot: colorbot):
     print("Aimbot Mode         :", Fore.CYAN + switchmodes[bot.switchmode] + Style.RESET_ALL)
     print("Aimbot FOV          :", Fore.CYAN + str(A1M_FOV) + Style.RESET_ALL)
     print("Camera FOV          :", Fore.CYAN + str(CAM_FOV) + Style.RESET_ALL)
+    print("Shoot Delay         :", Fore.CYAN + str(TRIGGERBOT_DELAY) + Style.RESET_ALL)
     print("Sensitivity         :", Fore.CYAN + "X: " + str(A1M_SPEED_X) + " Y: " + str(A1M_SPEED_Y) + Style.RESET_ALL)
     print("Offset              :", Fore.CYAN + "X: " + str(A1M_OFFSET_X) + " Y: " + str(A1M_OFFSET_Y) + Style.RESET_ALL)
     print("Aiming              :", (Fore.GREEN if bot.aimtoggled else Fore.RED) + str(bot.aimtoggled) + Style.RESET_ALL)

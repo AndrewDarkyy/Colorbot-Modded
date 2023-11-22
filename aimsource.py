@@ -15,9 +15,16 @@ from threading import Thread
 from urllib.request import urlopen
 from pygetwindow import getActiveWindow
 
+range=range
+len=len
+print=print
+tuple=tuple
+int=int
+max=max
+
 user32 = windll.user32
 
-CURRENT_VERSION = "v1.4" # IMPORTANT !!!!!! CHANGE lmfao
+CURRENT_VERSION = "v1.5" # IMPORTANT !!!!!! CHANGE lmfao
 
 system("title Colorbot")
 
@@ -129,6 +136,10 @@ screenshot["top"] = int((screenshot["height"] / 2) - center)
 screenshot["width"] = CAM_FOV
 screenshot["height"] = CAM_FOV
 
+ones_uint = ones((3, 3), uint8)
+sct_grab=sct.grab
+m_event=user32.mouse_event
+
 class colorbot:
     def __init__(self):
         self.aimtoggled = False
@@ -136,53 +147,53 @@ class colorbot:
         self.__clicks = 0
         self.__shooting = False
 
-    def stop(self):
+    def __stop(self):
         oldclicks = self.__clicks
         sleep(.05)
         if self.__clicks == oldclicks:
-            user32.mouse_event(0x0004)
+            m_event(0x0004)
 
-    def delayedaim(self):
+    def __delayedaim(self):
         self.__shooting=True
         sleep(TRIGGERBOT_DELAY)
-        user32.mouse_event(0x0002)
+        m_event(0x0002)
         self.__clicks += 1
-        Thread(target = self.stop).start()
+        Thread(target = self.__stop).start()
         self.__shooting = False
 
     def process(self):
         if is_roblox_focused():
-            (contours, hierarchy) = findContours(threshold(dilate(inRange(cvtColor(array(sct.grab(screenshot)), COLOR_BGR2HSV), lower, upper), ones((3, 3), uint8), iterations=5), 60, 255, THRESH_BINARY)[1], RETR_EXTERNAL, CHAIN_APPROX_NONE)
+            (contours, hierarchy) = findContours(threshold(dilate(inRange(cvtColor(array(sct_grab(screenshot)), COLOR_BGR2HSV), lower, upper), ones_uint, iterations=5), 60, 255, THRESH_BINARY)[1], RETR_EXTERNAL, CHAIN_APPROX_NONE)
             if len(contours) != 0:
                 contour = max(contours, key=contourArea)
                 topmost = tuple(contour[contour[:, :, 1].argmin()][0])
                 x = topmost[0] - center + A1M_OFFSET_X
                 y = topmost[1] - center + A1M_OFFSET_Y
-                distance = sqrt(x**2 + y**2)
+                distance = sqrt(x*x + y*y)
                 if distance <= A1M_FOV:
-                    user32.mouse_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0)
-                if distance <= 14:
+                    m_event(0x0001, int(x * A1M_SPEED_X), int(y * A1M_SPEED_Y), 0, 0)
+                if distance<=8:
                     if TRIGGERBOT_DELAY!=0:
                         if self.__shooting == False:
-                            Thread(target = self.delayedaim).start()
+                            Thread(target = self.__delayedaim).start()
                     else:
-                        user32.mouse_event(0x0002)
+                        m_event(0x0002)
                         self.__clicks += 1
-                        Thread(target = self.stop).start()
-                else:
+                        Thread(target = self.__stop).start()
+                elif distance<=50:
                     for index in range(len(contour)):
                         topmost = tuple(contour[index][0])
                         x = topmost[0] - center + A1M_OFFSET_X
                         y = topmost[1] - center + A1M_OFFSET_Y
-                        distance = sqrt(x**2 + y**2)
-                        if distance <= 13:
+                        distance = sqrt(x*x + y*y)
+                        if distance<=7:
                             if TRIGGERBOT_DELAY!=0:
                                 if self.__shooting == False:
-                                    Thread(target = self.delayedaim).start()
+                                    Thread(target = self.__delayedaim).start()
                             else:
-                                user32.mouse_event(0x0002)
+                                m_event(0x0002)
                                 self.__clicks += 1
-                                Thread(target = self.stop).start()
+                                Thread(target = self.__stop).start()
                             break
 
     def a1mtoggle(self):
@@ -209,7 +220,7 @@ def print_banner(bot: colorbot):
     print("Shoot Delay         :", Fore.CYAN + str(TRIGGERBOT_DELAY) + Style.RESET_ALL)
     print("Sensitivity         :", Fore.CYAN + "X: " + str(A1M_SPEED_X) + " Y: " + str(A1M_SPEED_Y) + Style.RESET_ALL)
     print("Offset              :", Fore.CYAN + "X: " + str(A1M_OFFSET_X) + " Y: " + str(A1M_OFFSET_Y) + Style.RESET_ALL)
-    print("Aiming              :", (Fore.GREEN if bot.aimtoggled else Fore.RED) + str(bot.aimtoggled) + Style.RESET_ALL)
+    print("Aiming              :", (Fore.GREEN if bot.aimtoggled else Fore.RED) + str(bot.aimtoggled))
 
 del CURRENT_VERSION
 del config
@@ -244,7 +255,7 @@ if __name__ == "__main__":
                 if GetAsyncKeyState(A1M_KEY) < 0:
                     if bot.switchmode == 0:
                         while GetAsyncKeyState(A1M_KEY) < 0:
-                            if not bot.aimtoggled: 
+                            if not bot.aimtoggled:
                                 bot.a1mtoggle()
                                 print_banner(bot)
                                 while bot.aimtoggled: 
@@ -264,7 +275,7 @@ if __name__ == "__main__":
                 if bool(user32.GetKeyState(A1M_KEY) & 0x80):
                     if bot.switchmode == 0:
                         while bool(user32.GetKeyState(A1M_KEY) & 0x80):
-                            if not bot.aimtoggled: 
+                            if not bot.aimtoggled:
                                 bot.a1mtoggle()
                                 print_banner(bot)
                                 while bot.aimtoggled: 
